@@ -1,0 +1,245 @@
+@page
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Create Order";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Create Order</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #2c3e50;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+
+            header nav a {
+                color: #fff;
+                margin-right: 15px;
+                text-decoration: none;
+            }
+
+                header nav a:hover {
+                    text-decoration: underline;
+                }
+
+            header button {
+                background: #e74c3c;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+        h3 {
+            color: #2c3e50;
+        }
+
+        label {
+            display: inline-block;
+            width: 120px;
+            margin-bottom: 6px;
+        }
+
+        input, select {
+            margin-bottom: 6px;
+            padding: 4px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+
+        th, td {
+            padding: 6px;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h3>Product List</h3>
+    <button id="loadProductsBtn">Load Products</button>
+    <ul id="productsUl"></ul>
+  
+
+    <h3>Create Order</h3>
+    <div>
+        <label>JWT:</label>
+        <textarea id="jwt" rows="4" cols="100" placeholder="JWT will appear here" readonly></textarea><br />
+        <label>Customer Id:</label>
+        <input id="customerId" value="2" /><br />
+        <label>Product Id:</label>
+        <input id="productId" value="2" /><br />
+        <label>Quantity:</label>
+        <input id="quantity" type="number" value="1" /><br />
+        <label>Discount Code:</label>
+        <select id="disc">
+            <option value="WELCOME10">WELCOME10</option>
+            <option value="SALE20">SALE20</option>
+            <option value="VIP50">VIP50</option>
+        </select><br />
+        <button id="createOrder">Create Order</button>
+    </div>
+
+    <div id="orderResult" class="result"></div>
+
+    <script>
+        const loadProductsBtn = document.getElementById('loadProductsBtn');
+        const productsUl = document.getElementById('productsUl');
+
+        loadProductsBtn.onclick = async () => {
+            productsUl.innerHTML = '';
+            try {
+                const res = await fetch('/api/products', {
+                    headers: { 'Authorization': 'Bearer ' + jwtInput.value }
+                });
+                if (!res.ok) throw new Error('Failed to fetch products');
+                const products = await res.json();
+                products.forEach(p => {
+                    const li = document.createElement('li');
+                    li.textContent = `${p.id} - ${p.name} ₹${p.price} (stock=${p.stock})`;
+                    productsUl.appendChild(li);
+                });
+            } catch (err) {
+                productsUl.innerHTML = 'Failed to load products.';
+            }
+        };
+        const jwtInput = document.getElementById("jwt");
+        const orderResultDiv = document.getElementById("orderResult");
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedJwt = localStorage.getItem("jwt");
+            if (!savedJwt) {
+                window.location.href = "/LoginPage"; // force login if missing
+            } else {
+                jwtInput.value = savedJwt;
+            }
+        });
+
+        // Logout clears token
+        document.getElementById("logoutBtn").onclick = () => {
+            localStorage.removeItem("jwt");
+            window.location.href = "/LoginPage";
+        };
+
+        // Create Order
+        document.getElementById("createOrder").onclick = async () => {
+            const order = {
+                customerId: parseInt(document.getElementById("customerId").value),
+                items: [
+                    {
+                        productId: parseInt(document.getElementById("productId").value),
+                        quantity: parseInt(document.getElementById("quantity").value)
+                    }
+                ],
+                discountCode: document.getElementById("disc").value
+            };
+
+            try {
+                const res = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + jwtInput.value
+                    },
+                    body: JSON.stringify(order)
+                });
+
+                if (!res.ok) {
+                    const text = await res.text();
+                    orderResultDiv.innerHTML = `<p style="color:red;">Error ${res.status}: ${text}</p>`;
+                    return;
+                }
+
+                const data = await res.json();
+
+              
+                const totalQty = data.items.reduce((sum, i) => sum + i.quantity, 0);
+
+               
+                let html = `
+                            <h4>Order Summary</h4>
+                            <table>
+                                <tr><th>Order ID</th><td>${data.id}</td></tr>
+                                <tr><th>Customer ID</th><td>${data.customerId}</td></tr>
+                                 <tr><th>Customer Name</th><td>${data.customerName}</td></tr>
+                                <tr><th>Date</th><td>${data.date}</td></tr>
+                                
+                            </table>
+
+                            <h4>Items</h4>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Product ID</th>
+                                        <th>Unit Price</th>
+                                        <th>Quantity</th>
+                                        <th>Subtotal</th>
+                                        <th>Discount</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.items.map(i => {
+                    const rowSubtotal = i.unitPrice * i.quantity;
+                    const rowDiscount = (data.discountApplied / data.subtotal) * rowSubtotal;
+                    const rowTotal = rowSubtotal - rowDiscount;
+                    return `
+                                            <tr>
+                                                <td>${i.productId}</td>
+                                                <td>₹${i.unitPrice}</td>
+                                                <td>${i.quantity}</td>
+                                                <td>₹${rowSubtotal.toFixed(2)}</td>
+                                                <td>₹${rowDiscount.toFixed(2)}</td>
+                                                <td>₹${rowTotal.toFixed(2)}</td>
+                                            </tr>
+                                        `;
+                }).join('')}
+                                </tbody>
+                            </table>
+                        `;
+                orderResultDiv.innerHTML = html;
+
+            } catch (err) {
+                orderResultDiv.innerHTML = `<p style="color:red;">Request failed: ${err.message}</p>`;
+            }
+        };
+    </script>
+</body>
+</html>

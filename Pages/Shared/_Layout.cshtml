@@ -1,0 +1,81 @@
+﻿@* Pages/Shared/_Layout.cshtml *@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] - Orders Demo</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <header>
+        <h2>Orders Demo</h2>
+        <nav>
+            <a href="/Index">Create Order</a> |
+            <a href="/Orders">Orders List</a>
+        </nav>
+        <button id="logoutBtn">Logout</button>
+    </header>
+
+    <main role="main" class="container">
+        @RenderBody()
+    </main>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedJwt = localStorage.getItem("jwt");
+            if (!savedJwt && window.location.pathname !== "/Login") {
+                window.location.href = "/LoginPage"; // force login
+            } else {
+                const jwtInput = document.getElementById("jwt");
+                if (jwtInput && savedJwt) jwtInput.value = savedJwt; // auto-fill JWT
+            }
+        });
+
+        document.getElementById("logoutBtn").onclick = () => {
+            localStorage.removeItem("jwt");
+            window.location.href = "/LoginPage";
+        };
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: #2c3e50;
+            color: #fff;
+        }
+
+            header nav a {
+                color: #fff;
+                margin-right: 15px;
+                text-decoration: none;
+            }
+
+                header nav a:hover {
+                    text-decoration: underline;
+                }
+
+            header button {
+                background: #e74c3c;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+        main {
+            padding: 20px;
+        }
+    </style>
+  
+</body>
+</html>

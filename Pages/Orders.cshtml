@@ -1,0 +1,198 @@
+﻿@page
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Orders list";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Orders List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #2c3e50;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+
+            header nav a {
+                color: #fff;
+                margin-right: 15px;
+                text-decoration: none;
+            }
+
+                header nav a:hover {
+                    text-decoration: underline;
+                }
+
+            header button {
+                background: #e74c3c;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+        h3 {
+            color: #2c3e50;
+        }
+
+        label {
+            display: inline-block;
+            width: 120px;
+            margin-bottom: 6px;
+        }
+
+        input {
+            margin-bottom: 6px;
+            padding: 4px;
+            width: 200px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+
+        .orders-list {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background: #f8f8f8;
+        }
+
+            .orders-list table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .orders-list th, .orders-list td {
+                border: 1px solid #ccc;
+                padding: 6px;
+                text-align: left;
+            }
+
+            .orders-list th {
+                background-color: #e2e2e2;
+            }
+
+        .pagination button {
+            margin: 0 2px;
+        }
+    </style>
+</head>
+<body>
+  
+
+    <h3>Orders List</h3>
+    <div>
+        <label>Customer Id:</label>
+        <input id="filterCustomer" /><br />
+        <label>From Date:</label>
+        <input id="filterFrom" type="date" /><br />
+        <label>To Date:</label>
+        <input id="filterTo" type="date" /><br />
+        <label>Page Size:</label>
+        <input id="filterPageSize" type="number" value="5" /><br />
+        <button id="loadOrders">Load Orders</button>
+    </div>
+
+    <div id="ordersList" class="orders-list"></div>
+    <div id="ordersPagination" class="pagination"></div>
+
+    <script>
+        const ordersListDiv = document.getElementById('ordersList');
+        const ordersPaginationDiv = document.getElementById('ordersPagination');
+        const filterCustomer = document.getElementById('filterCustomer');
+        const filterFrom = document.getElementById('filterFrom');
+        const filterTo = document.getElementById('filterTo');
+        const filterPageSize = document.getElementById('filterPageSize');
+
+        // Auto JWT check
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedJwt = localStorage.getItem("jwt");
+            if (!savedJwt) {
+                window.location.href = "/LoginPage"; // force login
+            }
+        });
+
+        // Logout
+        document.getElementById("logoutBtn").onclick = () => {
+            localStorage.removeItem("jwt");
+            window.location.href = "/LoginPage";
+        };
+
+        // Load orders with pagination + filters
+        async function loadOrders(page = 1) {
+            ordersListDiv.innerHTML = '';
+            ordersPaginationDiv.innerHTML = '';
+
+            const params = new URLSearchParams();
+            if (filterCustomer.value) params.append('customerId', filterCustomer.value);
+            if (filterFrom.value) params.append('from', filterFrom.value);
+            if (filterTo.value) params.append('to', filterTo.value);
+            params.append('page', page);
+            params.append('pageSize', filterPageSize.value || 5);
+
+            try {
+                const jwt = localStorage.getItem("jwt");
+                const res = await fetch('/api/orders?' + params.toString(), {
+                    headers: { 'Authorization': 'Bearer ' + jwt }
+                });
+
+                if (!res.ok) {
+                    const text = await res.text();
+                    ordersListDiv.innerHTML = `<p style="color:red;">Error ${res.status}: ${text}</p>`;
+                    return;
+                }
+
+                const data = await res.json();
+                let html = `<table>
+                                        <thead>
+                                            <tr>
+                                                <th>Order ID</th><th>Customer ID</th><th>Date</th>
+                                                <th>Subtotal</th><th>Discount</th><th>Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${data.items.map(o => `
+                                                <tr>
+                                                    <td>${o.id}</td>
+                                                    <td>${o.customerId}</td>
+                                                    <td>${o.date}</td>
+                                                    <td>₹${o.subtotal}</td>
+                                                    <td>₹${o.discountApplied}</td>
+                                                    <td>₹${o.total}</td>
+                                                </tr>`).join('')}
+                                        </tbody>
+                                    </table>`;
+                ordersListDiv.innerHTML = html;
+
+                const totalPages = Math.ceil(data.total / (filterPageSize.value || 5));
+                let paginationHtml = '';
+                for (let i = 1; i <= totalPages; i++) {
+                    paginationHtml += `<button ${i === page ? 'disabled' : ''} onclick="loadOrders(${i})">${i}</button>`;
+                }
+                ordersPaginationDiv.innerHTML = paginationHtml;
+
+            } catch (err) {
+                ordersListDiv.innerHTML = `<p style="color:red;">Failed to load orders: ${err.message}</p>`;
+            }
+        }
+
+        document.getElementById('loadOrders').onclick = () => loadOrders(1);
+    </script>
+</body>
+</html>
